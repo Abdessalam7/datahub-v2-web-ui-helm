@@ -1,0 +1,101 @@
+global:
+  registry: docker.artifactory-dogen.group.echonet
+  imagePullSecret: image-pull-secret
+  namespace: monitoring-datahub-v2
+
+backend:
+  name: datahub-v2-backend
+  image:
+    repository: private.fr2.icr.io/a101731-hprd/datahub-v2-monitoring-backend
+    tag: "main"
+    pullPolicy: Always
+
+  replicaCount: 1
+
+  service:
+    type: ClusterIP
+    port: 8081
+
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+  env:
+    APP_ENV: "production"
+    LOG_LEVEL: "info"
+
+  cosSecret:
+    secretName: cos-credentials
+    keys:
+      COS_ENDPOINT_URL: COS_ENDPOINT_URL
+      COS_ACCESS_KEY_ID: COS_ACCESS_KEY_ID
+      COS_SECRET_ACCESS_KEY: COS_SECRET_ACCESS_KEY
+      COS_REGION: COS_REGION
+      COS_BUCKET_NAME: COS_BUCKET_NAME
+
+  livenessProbe:
+    path: /health
+    initialDelaySeconds: 15
+    periodSeconds: 20
+
+  readinessProbe:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+frontend:
+  name: datahub-v2-frontend
+  image:
+    repository: private.fr2.icr.io/a101731-hprd/datahub-v2-monitoring-frontend
+    tag: "main"
+    pullPolicy: Always
+
+  replicaCount: 1
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+
+  nginx:
+    configMapName: nginx-config
+    mainConfigMapName: nginx-main-config
+
+  livenessProbe:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 20
+
+  readinessProbe:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/common-name: datahub-v2-monitoring-a101731-hprd.data.cloud.net.intra
+    cert-manager.io/issuer: datalab-cloud-echonet-issuer
+    cert-manager.io/issuer-group: horizon.evertrust.io
+    cert-manager.io/issuer-kind: ClusterIssuer
+  hosts:
+    - host: datahub-v2-monitoring-a101731-hprd.data.cloud.net.intra
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - datahub-v2-monitoring-a101731-hprd.data.cloud.net.intra
+      secretName: datahub-v2-monitoring-a101731-hprd.data.cloud.net.intra-tls
